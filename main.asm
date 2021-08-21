@@ -1,278 +1,169 @@
-; Representação do sinal:
-;	São usadas as duas portas de saída PORTB e PORTD.
 ;
-;		São 5 semáforos ao total, sendo 4 semáforos com 3 estados (verde, amarelo e vermelho) 
-;		e 1 semáforo com 2 estados (verde e vermelho).
+; AssemblerApplication1.asm
 ;
-;		Cada estado de cada semáforo é representado por um bit. 
-;		
-;		Para semáforos de 3 estados:
-;			001 --> Vermelho
-;			010 --> Amarelo
-;			100 --> Verde
-;		Para o semáforo de 2 estados:
-;			01 --> Vermelho
-;			10 --> Verde
-;      
-;		PORTB:
-;			00|000|000
-;			^   ^   ^
-;      Pedestre |   |_ Semáforo 1
-;               |__ Semáforo 2
+; Created: 17/08/2021 22:38:48
+; Author : Andre
 ;
-;		PORTD:
-;           00|000|000
-;				^   ^
-;  Semáforo 4___|   |_ Semáforo 3
-;
-jmp reset
-.org OC1Aaddr
-jmp OC1A_Interrupt
+
 
 .def temp = r16
-.def leds = r17 ;current LED value
+.def leds = r17 
+.def count = r18 ;contador de estados
+.def state = r20 ;estado atual 
+
 .cseg
 
-#define CLOCK 16.0e6 ;clock speed
-#define BASE 10.0e-6
+jmp reset
+.org OC1Aaddr
+jmp OCI1A_Interrupt
 
-clock_set:
-	; Essa função é responsável por redefinir o tempo a ser contado pelo timer
-
+OCI1A_Interrupt:
+	
 	push r16
 	in r16, SREG
 	push r16
+	
+	subi count, 1
 
-	.equ PRESCALE = 0b101
-	.equ PRESCALE_DIV = 1024
-	.equ WGM = 0b0100 
+	pop r16
+	out SREG, r16
+	pop r16
+	reti
 
+reset:
+	ldi count, 0 ;count = 0 para setar o primeiro estado
+	ldi state, 1 ; começo no estado 1
+
+	ldi temp, low(RAMEND)
+	out SPL, temp
+	ldi temp, high(RAMEND)
+	out SPH, temp
+
+	;setando os pinos da porta B
+
+	ldi temp, $FF
+	out DDRB, temp
+	ldi leds, $FF
+	out PORTB, leds
+
+	;setando os pinos da porta D
+	out DDRD, temp
+	ldi leds, $3F
+	out PORTD, leds
+
+	#define CLOCK 16.0e6 ;clock do arduino laboratório
+	#define DELAY 0.001  ;delay = 1ms para contar de 1ms em 1ms
+
+	.equ PRESCALE = 0b100
+	.equ PRESCALE_DIV = 256
+	.equ WGM = 0b0100
 	.equ TOP = int(0.5 + ((CLOCK/PRESCALE_DIV)*DELAY))
 	.if TOP > 65535
 	.error "TOP is out of range"
 	.endif
-	
-	ldi temp, high(TOP) 
+
+	ldi temp, high(TOP)
 	sts OCR1AH, temp
 	ldi temp, low(TOP)
 	sts OCR1AL, temp
 	ldi temp, ((WGM&0b11) << WGM10) 
 	sts TCCR1A, temp
 	ldi temp, ((WGM>> 2) << WGM12)|(PRESCALE << CS10)
-	sts TCCR1B, temp
 
-	pop r16
-	out SREG,r16
-	pop r16
-	ret
+	sts TCCR1B, temp 
+	lds r16, TIMSK1
+	sbr r16, 1 <<OCIE1A
+	sts TIMSK1, r16
 
-OC1A_Interrupt:
-	; Trata a interrupção do timer
-	
-	push r16
-	in r16, SREG
-	push r16
-
-
-	call clock_set
-	cpi stateFlag,7
-	breq state7
-	subi stateFlag,-1
-	state7:
-		subi stateFlag,6
-
-	pop r16
-	out SREG,r16
-	pop r16
-	reti ; retorno da interrupção
-
-reset:
-	.cseg
-	.def stateFlag = r25 ; Guarda o número do estado atual
-	ldi stateFlag, 0b00000001 ; Definindo que estamos no primeiro estado.
-	
-	;Inicialização da pilha
-	ldi temp, low(RAMEND)
-	out SPL, temp
-	ldi temp, high(RAMEND)
-	out SPH, temp
-	
-	; Configuração para utilizar as portas B e D como saída
-	ldi temp, $FF
-	out DDRB, temp
-	out DDRD, temp
-
-	; Habilitar flag de interrupção global
-	lds temp, TIMSK1
-	sbr temp, 1 << OCIE1A
-	sts TIMSK1, temp
 	sei
 
-	loop:
-		; Switch case para verificação do próximo estado a ser exibido no sinal.
-		cpi stateFlag, 1
-		breq case1
-		cpi stateFlag, 2
-		breq case2
-		cpi stateFlag, 3
-		breq case3
-		cpi stateFlag, 4
-		breq case4
-		cpi stateFlag, 5
-		breq case5
-		cpi stateFlag, 6
-		breq case6
-		cpi stateFlag, 7
-		breq case7
+	;loop principal
 
-	
-		case1:
-			call Estado1
-			rjmp end_switch
-		case2:
-			call Estado2
-			rjmp end_switch
-		case3:
-			call Estado3
-			rjmp end_switch
-		case4:
-			call Estado4
-			rjmp end_switch
-		case5:
-			call Estado5
-			rjmp end_switch
-		case6:
-			call Estado6
-			rjmp end_switch
-		case7:
-			call Estado7
-		end_switch:
-		
-		rjmp loop
+	lp: cpi count, 0 ;tempo já expirou?
+		brne lp
 
-Estado1:
-	; Função para configurar os leds do estado 1 e definição do tempo de duração até o próximo estado
-	; Comportamento semelhante para os próximos estados.
-		
-	push r16
-	in r16, SREG
-	push r16
-	
-	ldi leds, 0b01100001; pedestre fechado, semáforo 2 verde, semáforo 1 vermelho
-	out PORTB, leds
-	ldi leds, 0b00001100; semáforo 4 vermelho,semáforo 3 verde
-	out PORTD, leds
-	.set delay = 27.0*BASE ; Tempo para o próximo estado
+		s1:	cpi state, 1 ;este é o estado 1?
+			brne s2
 
-	pop r16
-	out SREG,r16
-	pop r16
+			sp: ldi leds, 0b01100001 
+			out PORTB, leds
+			ldi leds, 0b00001100
+			out PORTD, leds
+				
+			ldi count, 27 ;#segundos do estado 1 para o estado 2
+			inc state	  ;state = state + 1 -> estado 2
+			rjmp lp		  ;timer contando até 27 ms
+			
+		s2:	cpi state, 2 ;este é o estado 2?
+			brne s3
+				
+			ldi leds, 0b01010001 ; pedestre fechado, semáforo 2 amarelo, semáforo 1 vermelho 
+			out PORTB, leds 
+			ldi leds, 0b00001100 ; semáforo 4 vermelho,semáforo 3 verde
+			out PORTD, leds
+					
+			ldi count, 3 ; #segundos do estado 2 para o estado 3
+			inc state    ;estado = estado + 1 -> estado 3
+			rjmp lp
+
+		s3:	cpi state, 3 ;estamos no estado 3?
+			brne s4
+				
+			ldi leds, 0b01001001 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 vermelho 
+			out PORTB, leds 
+			ldi leds, 0b00100100 ; semáforo 4 verde,semáforo 3 verde
+			out PORTD, leds
+
+				
+			ldi count, 57 ; #segundos do estado 3 para o estado 4
+			inc state     ;estado = estado + 1 -> estado 4
+			rjmp lp
+
+		s4:	cpi state, 4; este é o estado 4?
+			brne s5
+				
+			ldi leds, 0b01001001 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 vermelho 
+			out PORTB, leds 
+			ldi leds, 0b00010010 ; semáforo 4 amarelo,semáforo 3 amarelo
+			out PORTD, leds
+
+			ldi count, 3 ; #segundos do estado 4 para o estado 5
+			inc state    ;estado = estado + 1 -> estado 5
+			rjmp lp
+
+		s5:	cpi state, 5 ; este é o estado 5?
+			brne s6
+				
+			ldi leds, 0b10001001 ; pedestre aberto, semáforo 2 vermelho, semáforo 1 vermelho 
+			out PORTB, leds 
+			ldi leds, 0b00001001 ; semáforo 4 vermelho,semáforo 3 vermelho
+			out PORTD, leds
+
+			ldi count, 10 ; #segundos do estado 5 para o estado 6
+			inc state	  ;estado = estado + 1 -> estado 6
+			rjmp lp
+
+		s6:	cpi state, 6
+			brne s7
+				
+			ldi leds, 0b01001100 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 verde 
+			out PORTB, leds 
+			ldi leds, 0b00001001 ; semáforo 4 vermelho,semáforo 3 vermelho
+			out PORTD, leds
+
+			ldi count, 18 ; #segundos do estado 6 para o estado 7
+			inc state     ;estado = estado + 1 -> estado 7
+			rjmp lp
 
 
-Estado2:
-	
-	push r16
-	in r16, SREG
-	push r16
+		s7:	cpi state, 7
+			brne lp
+				
+			ldi leds, 0b01001010 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 amarelo	 
+			out PORTB, leds 
+			ldi leds, 0b00001001 ; semáforo 4 vermelho,semáforo 3 vermelho
+			out PORTD, leds
 
-	ldi leds, 0b01010001 ; pedestre fechado, semáforo 2 amarelo, semáforo 1 vermelho 
-	out PORTB, leds 
-	ldi leds, 0b00001100 ; semáforo 4 vermelho,semáforo 3 verde
-	out PORTD, leds
-	.set delay = 3.0*BASE
-
-	pop r16
-	out SREG,r16
-	pop r16
-
-	ret
-
-Estado3:
-
-	push r16
-	in r16, SREG
-	push r16
-
-	ldi leds, 0b01001001 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 vermelho 
-	out PORTB, leds 
-	ldi leds, 0b00100100 ; semáforo 4 verde,semáforo 3 verde
-	out PORTD, leds 
-	.set delay = 57.0*BASE
-
-	pop r16
-	out SREG,r16
-	pop r16
-
-	ret
-
-Estado4:
-
-	push r16
-	in r16, SREG
-	push r16
-
-	ldi leds, 0b01001001 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 vermelho 
-	out PORTB, leds 
-	ldi leds, 0b00010010 ; semáforo 4 amarelo,semáforo 3 amarelo
-	out PORTD, leds
-	.set delay = 3.0*BASE
-
-	pop r16
-	out SREG,r16
-	pop r16
-
-	ret
-
-Estado5:
-	
-	push r16
-	in r16, SREG
-	push r16
-
-	ldi leds, 0b10001001 ; pedestre aberto, semáforo 2 vermelho, semáforo 1 vermelho 
-	out PORTB, leds 
-	ldi leds, 0b00001001 ; semáforo 4 vermelho,semáforo 3 vermelho
-	out PORTD, leds
-	.set delay = 10*BASE
-
-	pop r16
-	out SREG,r16
-	pop r16
-
-	ret
-
-Estado6:
-
-	push r16
-	in r16, SREG
-	push r16
-
-	ldi leds, 0b01001100 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 verde 
-	out PORTB, leds 
-	ldi leds, 0b00001001 ; semáforo 4 vermelho,semáforo 3 vermelho
-	out PORTD, leds
-	.set delay = 18*BASE
-
-	pop r16
-	out SREG,r16
-	pop r16
-
-	ret
-
-Estado7:
-
-	push r16
-	in r16, SREG
-	push r16
-
-	ldi leds, 0b01001010 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 amarelo 
-	out PORTB, leds 
-	ldi leds, 0b00001001 ; semáforo 4 vermelho,semáforo 3 vermelho
-	out PORTD, leds
-	.set delay = 3*BASE
-
-	pop r16
-	out SREG,r16
-	pop r16
-
-	ret
+			ldi count, 3 ; #segundos do estado 7 para o estado 1
+			ldi state, 1 ;retorno ao estado 1
+			rjmp lp
