@@ -27,9 +27,9 @@
 ;
 
 .def temp = r16
-.def leds = r17 
-.def count = r18 ;contador de estados
-.def state = r20 ;estado atual 
+.def leds = r17 ; Usado para definir a configuração dos leds
+.def timeCount = r18 ; Conta quantas interrupções faltam pro próximo estado
+.def actualState = r20 ; Registra em qual estado está
 
 .cseg
 
@@ -38,12 +38,13 @@ jmp reset
 jmp OCI1A_Interrupt
 
 OCI1A_Interrupt:
-	
+	; A cada interrupção, diminui 1ms do tempo que falta pro próximo estado
+
 	push r16
 	in r16, SREG
 	push r16
 	
-	subi count, 1
+	subi timeCount, 1
 
 	pop r16
 	out SREG, r16
@@ -51,8 +52,8 @@ OCI1A_Interrupt:
 	reti
 
 reset:
-	ldi count, 0 ;count = 0 para setar o primeiro estado
-	ldi state, 1 ; começo no estado 1
+	ldi timeCount, 0 ;timeCount = 0 para setar o primeiro estado
+	ldi actualState, 1 ; começo no estado 1
 
 	ldi temp, low(RAMEND)
 	out SPL, temp
@@ -99,22 +100,22 @@ reset:
 
 	;loop principal
 
-	lp: cpi count, 0 ;tempo já expirou?
-		brne lp
+	lp: cpi timeCount, 0 ; timeCount == 0 indica que chegou a hora de mudar de estado.
+		brne lp 
 
-		s1:	cpi state, 1 ;este é o estado 1?
+		s1:	cpi actualState, 1 ; Verifica se o próximo estado é o estado 1
 			brne s2
 
-			ldi leds, 0b01100001 
+			ldi leds, 0b01100001 ; pedestre fechado, semáforo 2 verde, semáforo 1 vermelho 
 			out PORTB, leds
-			ldi leds, 0b00001100
+			ldi leds, 0b00001100 ; semáforo 4 vermelho,semáforo 3 verde
 			out PORTD, leds
 				
-			ldi count, 27 ;#segundos do estado 1 para o estado 2
-			inc state	  ;state = state + 1 -> estado 2
+			ldi timeCount, 27 ;#segundos do estado 1 para o estado 2
+			inc actualState	  ;actualState = actualState + 1 -> estado 2
 			rjmp lp		  ;timer contando até 27 ms
 			
-		s2:	cpi state, 2 ;este é o estado 2?
+		s2:	cpi actualState, 2 ;este é o estado 2?
 			brne s3
 				
 			ldi leds, 0b01010001 ; pedestre fechado, semáforo 2 amarelo, semáforo 1 vermelho 
@@ -122,11 +123,11 @@ reset:
 			ldi leds, 0b00001100 ; semáforo 4 vermelho,semáforo 3 verde
 			out PORTD, leds
 					
-			ldi count, 3 ; #segundos do estado 2 para o estado 3
-			inc state    ;estado = estado + 1 -> estado 3
+			ldi timeCount, 3 ; #segundos do estado 2 para o estado 3
+			inc actualState    ;estado = estado + 1 -> estado 3
 			rjmp lp
 
-		s3:	cpi state, 3 ;estamos no estado 3?
+		s3:	cpi actualState, 3 ;estamos no estado 3?
 			brne s4
 				
 			ldi leds, 0b01001001 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 vermelho 
@@ -135,11 +136,11 @@ reset:
 			out PORTD, leds
 
 				
-			ldi count, 57 ; #segundos do estado 3 para o estado 4
-			inc state     ;estado = estado + 1 -> estado 4
+			ldi timeCount, 57 ; #segundos do estado 3 para o estado 4
+			inc actualState     ;estado = estado + 1 -> estado 4
 			rjmp lp
 
-		s4:	cpi state, 4; este é o estado 4?
+		s4:	cpi actualState, 4; este é o estado 4?
 			brne s5
 				
 			ldi leds, 0b01001001 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 vermelho 
@@ -147,11 +148,11 @@ reset:
 			ldi leds, 0b00010010 ; semáforo 4 amarelo,semáforo 3 amarelo
 			out PORTD, leds
 
-			ldi count, 3 ; #segundos do estado 4 para o estado 5
-			inc state    ;estado = estado + 1 -> estado 5
+			ldi timeCount, 3 ; #segundos do estado 4 para o estado 5
+			inc actualState    ;estado = estado + 1 -> estado 5
 			rjmp lp
 
-		s5:	cpi state, 5 ; este é o estado 5?
+		s5:	cpi actualState, 5 ; este é o estado 5?
 			brne s6
 				
 			ldi leds, 0b10001001 ; pedestre aberto, semáforo 2 vermelho, semáforo 1 vermelho 
@@ -159,11 +160,11 @@ reset:
 			ldi leds, 0b00001001 ; semáforo 4 vermelho,semáforo 3 vermelho
 			out PORTD, leds
 
-			ldi count, 10 ; #segundos do estado 5 para o estado 6
-			inc state	  ;estado = estado + 1 -> estado 6
+			ldi timeCount, 10 ; #segundos do estado 5 para o estado 6
+			inc actualState	  ;estado = estado + 1 -> estado 6
 			rjmp lp
 
-		s6:	cpi state, 6
+		s6:	cpi actualState, 6
 			brne s7
 				
 			ldi leds, 0b01001100 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 verde 
@@ -171,12 +172,12 @@ reset:
 			ldi leds, 0b00001001 ; semáforo 4 vermelho,semáforo 3 vermelho
 			out PORTD, leds
 
-			ldi count, 18 ; #segundos do estado 6 para o estado 7
-			inc state     ;estado = estado + 1 -> estado 7
+			ldi timeCount, 18 ; #segundos do estado 6 para o estado 7
+			inc actualState     ;estado = estado + 1 -> estado 7
 			rjmp lp
 
 
-		s7:	cpi state, 7
+		s7:	cpi actualState, 7
 			brne lp
 				
 			ldi leds, 0b01001010 ; pedestre fechado, semáforo 2 vermelho, semáforo 1 amarelo	 
@@ -184,6 +185,6 @@ reset:
 			ldi leds, 0b00001001 ; semáforo 4 vermelho,semáforo 3 vermelho
 			out PORTD, leds
 
-			ldi count, 3 ; #segundos do estado 7 para o estado 1
-			ldi state, 1 ;retorno ao estado 1
+			ldi timeCount, 3 ; #segundos do estado 7 para o estado 1
+			ldi actualState, 1 ;retorno ao estado 1
 			rjmp lp
