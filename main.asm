@@ -1,10 +1,30 @@
+; Representação do sinal:
+;	São usadas as duas portas de saída PORTB e PORTD.
 ;
-; AssemblerApplication1.asm
+;		São 5 semáforos ao total, sendo 4 semáforos com 3 estados (verde, amarelo e vermelho) 
+;		e 1 semáforo com 2 estados (verde e vermelho).
 ;
-; Created: 17/08/2021 22:38:48
-; Author : Andre
+;		Cada estado de cada semáforo é representado por um bit. 
+;		
+;		Para semáforos de 3 estados:
+;			001 --> Vermelho
+;			010 --> Amarelo
+;			100 --> Verde
+;		Para o semáforo de 2 estados:
+;			01 --> Vermelho
+;			10 --> Verde
+;      
+;		PORTB:
+;			00|000|000
+;			^   ^   ^
+;      Pedestre |   |_ Semáforo 1
+;               |__ Semáforo 2
 ;
-
+;		PORTD:
+;           00|000|000
+;				^   ^
+;  Semáforo 4___|   |_ Semáforo 3
+;
 
 .def temp = r16
 .def leds = r17 
