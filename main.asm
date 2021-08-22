@@ -1,35 +1,35 @@
-; Representa√ß√£o do sinal:
-;	S√£o usadas as duas portas de sa√≠da PORTB e PORTD.
+; RepresentaÁ„o do sinal:
+;	S„o usadas as duas portas de saÌda PORTB e PORTD.
 ;
-;		S√£o 5 sem√°foros ao total, sendo 4 sem√°foros com 3 estados (verde, amarelo e vermelho) 
-;		e 1 sem√°foro com 2 estados (verde e vermelho).
+;		S„o 5 sem·foros ao total, sendo 4 sem·foros com 3 estados (verde, amarelo e vermelho) 
+;		e 1 sem·foro com 2 estados (verde e vermelho).
 ;
-;		Cada estado de cada sem√°foro √© representado por um bit. 
+;		Cada estado de cada sem·foro È representado por um bit. 
 ;		
-;		Para sem√°foros de 3 estados:
+;		Para sem·foros de 3 estados:
 ;			001 --> Vermelho
 ;			010 --> Amarelo
 ;			100 --> Verde
-;		Para o sem√°foro de 2 estados:
+;		Para o sem·foro de 2 estados:
 ;			01 --> Vermelho
 ;			10 --> Verde
 ;      
 ;		PORTB:
 ;			00|000|000
 ;			^   ^   ^
-;      Pedestre |   |_ Sem√°foro 1
-;               |__ Sem√°foro 2
+;      Pedestre |   |_ Sem·foro 1
+;               |__ Sem·foro 2
 ;
 ;		PORTD:
 ;           00|000|000
 ;				^   ^
-;  Sem√°foro 4___|   |_ Sem√°foro 3
+;  Sem·foro 4___|   |_ Sem·foro 3
 ;
 
 .def temp = r16
-.def leds = r17 ; Usado para definir a configura√ß√£o dos leds
-.def timeCount = r18 ; Conta quantas interrup√ß√µes faltam pro pr√≥ximo estado
-.def actualState = r20 ; Registra em qual estado est√°
+.def leds = r17 ; Usado para definir a configuraÁ„o dos leds
+.def timeCount = r18 ; Conta quantas interrupÁıes faltam pro prÛximo estado
+.def actualState = r20 ; Registra em qual estado est·
 
 .cseg
 
@@ -38,7 +38,7 @@ jmp reset
 jmp OCI1A_Interrupt
 
 OCI1A_Interrupt:
-	; A cada interrup√ß√£o, diminui 1ms do tempo que falta pro pr√≥ximo estado
+	; A cada interrupÁ„o, diminui 1ms do tempo que falta pro prÛximo estado
 
 	push r16
 	in r16, SREG
@@ -53,7 +53,7 @@ OCI1A_Interrupt:
 
 reset:
 	ldi timeCount, 0 ;timeCount = 0 para setar o primeiro estado
-	ldi actualState, 1 ; come√ßo no estado 1
+	ldi actualState, 1 ; comeÁo no estado 1
 
 	ldi temp, low(RAMEND)
 	out SPL, temp
@@ -64,15 +64,12 @@ reset:
 
 	ldi temp, $FF
 	out DDRB, temp
-	ldi leds, $FF
-	out PORTB, leds
 
 	;setando os pinos da porta D
+	ldi temp, $3F
 	out DDRD, temp
-	ldi leds, $3F
-	out PORTD, leds
 
-	#define CLOCK 16.0e6 ;clock do arduino laborat√≥rio
+	#define CLOCK 16.0e6 ;clock do arduino laboratÛrio
 	#define DELAY 0.001  ;delay = 1ms para contar de 1ms em 1ms
 
 	.equ PRESCALE = 0b100
@@ -103,24 +100,24 @@ reset:
 	lp: cpi timeCount, 0 ; timeCount == 0 indica que chegou a hora de mudar de estado.
 		brne lp 
 
-		s1:	cpi actualState, 1 ; Verifica se o pr√≥ximo estado √© o estado 1
+		s1:	cpi actualState, 1 ; Verifica se o prÛximo estado È o estado 1
 			brne s2
 
-			ldi leds, 0b01100001 ; pedestre fechado, sem√°foro 2 verde, sem√°foro 1 vermelho 
+			ldi leds, 0b01100001 ; pedestre fechado, sem·foro 2 verde, sem·foro 1 vermelho 
 			out PORTB, leds
-			ldi leds, 0b00001100 ; sem√°foro 4 vermelho,sem√°foro 3 verde
+			ldi leds, 0b00001100 ; sem·foro 4 vermelho,sem·foro 3 verde
 			out PORTD, leds
 				
 			ldi timeCount, 27 ;#segundos do estado 1 para o estado 2
 			inc actualState	  ;actualState = actualState + 1 -> estado 2
-			rjmp lp		  ;timer contando at√© 27 ms
+			rjmp lp		  ;timer contando atÈ 27 ms
 			
-		s2:	cpi actualState, 2 ;este √© o estado 2?
+		s2:	cpi actualState, 2 ;este È o estado 2?
 			brne s3
 				
-			ldi leds, 0b01010001 ; pedestre fechado, sem√°foro 2 amarelo, sem√°foro 1 vermelho 
+			ldi leds, 0b01010001 ; pedestre fechado, sem·foro 2 amarelo, sem·foro 1 vermelho 
 			out PORTB, leds 
-			ldi leds, 0b00001100 ; sem√°foro 4 vermelho,sem√°foro 3 verde
+			ldi leds, 0b00001100 ; sem·foro 4 vermelho,sem·foro 3 verde
 			out PORTD, leds
 					
 			ldi timeCount, 3 ; #segundos do estado 2 para o estado 3
@@ -130,9 +127,9 @@ reset:
 		s3:	cpi actualState, 3 ;estamos no estado 3?
 			brne s4
 				
-			ldi leds, 0b01001001 ; pedestre fechado, sem√°foro 2 vermelho, sem√°foro 1 vermelho 
+			ldi leds, 0b01001001 ; pedestre fechado, sem·foro 2 vermelho, sem·foro 1 vermelho 
 			out PORTB, leds 
-			ldi leds, 0b00100100 ; sem√°foro 4 verde,sem√°foro 3 verde
+			ldi leds, 0b00100100 ; sem·foro 4 verde,sem·foro 3 verde
 			out PORTD, leds
 
 				
@@ -140,24 +137,24 @@ reset:
 			inc actualState     ;estado = estado + 1 -> estado 4
 			rjmp lp
 
-		s4:	cpi actualState, 4; este √© o estado 4?
+		s4:	cpi actualState, 4; este È o estado 4?
 			brne s5
 				
-			ldi leds, 0b01001001 ; pedestre fechado, sem√°foro 2 vermelho, sem√°foro 1 vermelho 
+			ldi leds, 0b01001001 ; pedestre fechado, sem·foro 2 vermelho, sem·foro 1 vermelho 
 			out PORTB, leds 
-			ldi leds, 0b00010010 ; sem√°foro 4 amarelo,sem√°foro 3 amarelo
+			ldi leds, 0b00010010 ; sem·foro 4 amarelo,sem·foro 3 amarelo
 			out PORTD, leds
 
 			ldi timeCount, 3 ; #segundos do estado 4 para o estado 5
 			inc actualState    ;estado = estado + 1 -> estado 5
 			rjmp lp
 
-		s5:	cpi actualState, 5 ; este √© o estado 5?
+		s5:	cpi actualState, 5 ; este È o estado 5?
 			brne s6
 				
-			ldi leds, 0b10001001 ; pedestre aberto, sem√°foro 2 vermelho, sem√°foro 1 vermelho 
+			ldi leds, 0b10001001 ; pedestre aberto, sem·foro 2 vermelho, sem·foro 1 vermelho 
 			out PORTB, leds 
-			ldi leds, 0b00001001 ; sem√°foro 4 vermelho,sem√°foro 3 vermelho
+			ldi leds, 0b00001001 ; sem·foro 4 vermelho,sem·foro 3 vermelho
 			out PORTD, leds
 
 			ldi timeCount, 10 ; #segundos do estado 5 para o estado 6
@@ -167,9 +164,9 @@ reset:
 		s6:	cpi actualState, 6
 			brne s7
 				
-			ldi leds, 0b01001100 ; pedestre fechado, sem√°foro 2 vermelho, sem√°foro 1 verde 
+			ldi leds, 0b01001100 ; pedestre fechado, sem·foro 2 vermelho, sem·foro 1 verde 
 			out PORTB, leds 
-			ldi leds, 0b00001001 ; sem√°foro 4 vermelho,sem√°foro 3 vermelho
+			ldi leds, 0b00001001 ; sem·foro 4 vermelho,sem·foro 3 vermelho
 			out PORTD, leds
 
 			ldi timeCount, 18 ; #segundos do estado 6 para o estado 7
@@ -180,9 +177,9 @@ reset:
 		s7:	cpi actualState, 7
 			brne lp
 				
-			ldi leds, 0b01001010 ; pedestre fechado, sem√°foro 2 vermelho, sem√°foro 1 amarelo	 
+			ldi leds, 0b01001010 ; pedestre fechado, sem·foro 2 vermelho, sem·foro 1 amarelo	 
 			out PORTB, leds 
-			ldi leds, 0b00001001 ; sem√°foro 4 vermelho,sem√°foro 3 vermelho
+			ldi leds, 0b00001001 ; sem·foro 4 vermelho,sem·foro 3 vermelho
 			out PORTD, leds
 
 			ldi timeCount, 3 ; #segundos do estado 7 para o estado 1
